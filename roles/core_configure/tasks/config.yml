@@ -96,20 +96,73 @@
     #################################################################
     # Do shutdown the gpfs cluster
 
+    - name: Check if reboot.storagenodegrp file exists on remote server
+      stat:
+        path: "/var/mmfs/tmp/reboot.storagenodegrp"
+      register: reboot_file_stat
+      run_once: true
+
+    - name: Create reboot.storagenodegrp if it does not exist
+      file:
+        path: /var/mmfs/tmp/reboot.storagenodegrp
+        state: touch
+      when: not reboot_file_stat.stat.exists
+      run_once: true
+
+    - name: Read NodeClass.storagenodegrp
+      slurp:
+        src: /var/mmfs/tmp/NodeClass.storagenodegrp
+      register: NodeClass_storagenodegrp_name
+      run_once: true
+
+    - name: Read reboot.storagenodegrp
+      slurp:
+        src: /var/mmfs/tmp/reboot.storagenodegrp
+      register: reboot_storagenodegrp_name
+      run_once: true
+
+    - name: Convert NodeClass.storagenodegrp content to list
+      set_fact:
+        NodeClass_storagenodegrp_file: "{{ NodeClass_storagenodegrp_name.content | b64decode | split('\n') }}"
+      run_once: true
+
+    - name: Convert reboot.storagenodegrp content to list
+      set_fact:
+        reboot_storagenodegrp_file: "{{ reboot_storagenodegrp_name.content | b64decode | split('\n') }}"
+      run_once: true
+
+    - name: Find newly added nodes
+      set_fact:
+        newly_added_nodes: "{{ NodeClass_storagenodegrp_file | difference(reboot_storagenodegrp_file) }}"
+      run_once: true
+
+    - name: Overwrite reboot.storagenodegrp with newly node names
+      copy:
+        content: "{{ newly_added_nodes | join('\n') + '\n' }}"
+        dest: /var/mmfs/tmp/reboot.storagenodegrp
+      run_once: true
+    
+    - name: Check if reboot.storagenodegrp has new node names
+      shell: "cat /var/mmfs/tmp/reboot.storagenodegrp"
+      register: reboot_storagenodegrp_content_check
+      changed_when: false
+
+    - name: Set fact if reboot.storagenodegrp has content
+      set_fact:
+        reboot_storagenodegrp: "{{ reboot_storagenodegrp_content_check.stdout != '' }}"
+
     - name: cluster | Shutdown gpfs cluster 
-      command: /usr/lpp/mmfs/bin/mmshutdown -N /var/mmfs/tmp/NodeClass.storagenodegrp
+      command: /usr/lpp/mmfs/bin/mmshutdown -N /var/mmfs/tmp/reboot.storagenodegrp
       register: shutdown_gpfs_cluster
-      when:
-        - true in scale_config_changed_params.results | map(attribute='changed') | list
+      when: reboot_storagenodegrp
 
     - name: Wait for 10-second 
       pause:
         seconds: 10
-      when:
-        - true in scale_config_changed_params.results | map(attribute='changed') | list
+      when: reboot_storagenodegrp
         
     - name: cluster | Startup gpfs cluster
-      command: /usr/lpp/mmfs/bin/mmstartup -N /var/mmfs/tmp/NodeClass.storagenodegrp
+      command: /usr/lpp/mmfs/bin/mmstartup -N /var/mmfs/tmp/reboot.storagenodegrp
       register: started_gpfs_cluster
       when: shutdown_gpfs_cluster.changed == true
 
