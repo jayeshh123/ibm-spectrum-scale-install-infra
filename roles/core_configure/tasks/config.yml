@@ -108,47 +108,42 @@
         state: touch
       when: not reboot_file_stat.stat.exists
       run_once: true
-
-    # - name: Copy NodeClass.storagenodegrpm to reboot.storagenodegrp if it does not exist
-    #   command: cp /var/mmfs/tmp/NodeClass.storagenodegrpm /var/mmfs/tmp/reboot.storagenodegrp
-    #   when: not reboot_file_stat.stat.exists
-    #   run_once: true
-
-    - name: Read the content of file1.txt
+      
+    - name: Read the content of NodeClass.storagenodegrp
       command: cat /var/mmfs/tmp/NodeClass.storagenodegrp
-      register: file1_content
+      register: node_class_storagenodegrp
 
-    - name: Debug file1 content
+    - name: Debug NodeClass.storagenodegrp content
       debug:
-        msg: "Content of file1.txt: {{ file1_content.stdout }}"
+        msg: "Content of NodeClass.storagenodegrp: {{ node_class_storagenodegrp.stdout }}"
 
-    - name: Read the content of file2.txt
+    - name: Read the content of reboot.storagenodegrp
       command: cat /var/mmfs/tmp/reboot.storagenodegrp
-      register: file2_content
+      register: reboot_storagenodegrp
 
-    - name: Debug file2 content
+    - name: Debug reboot.storagenodegrp content
       debug:
-        msg: "Content of file2.txt: {{ file2_content.stdout }}"
+        msg: "Content of reboot.storagenodegrp: {{ reboot_storagenodegrp.stdout }}"
 
-    - name: Split file1 content into a list
+    - name: Split NodeClass.storagenodegrp content into a list
       set_fact:
-        file1_list: "{{ file1_content.stdout_lines }}"
+        node_class_storagenodegrp_list: "{{ node_class_storagenodegrp.stdout_lines }}"
 
-    - name: Debug file1 list
+    - name: Debug NodeClass.storagenodegrp list
       debug:
-        msg: "List from file1.txt: {{ file1_list }}"
+        msg: "List from node_class_storagenodegrp_list: {{ node_class_storagenodegrp_list }}"
 
-    - name: Split file2 content into a list
+    - name: Split reboot_storagenodegrp content into a list
       set_fact:
-        file2_list: "{{ file2_content.stdout_lines }}"
+        reboot_storagenodegrp_list: "{{ reboot_storagenodegrp.stdout_lines }}"
 
-    - name: Debug file2 list
+    - name: Debug reboot.storagenodegrp list
       debug:
-        msg: "List from file2.txt: {{ file2_list }}"
+        msg: "List from reboot_storagenodegrp_list: {{ reboot_storagenodegrp_list }}"
 
-    - name: Find names unique to file1
+    - name: Find names unique to NodeClass.storagenodegrp
       set_fact:
-        unique_names: "{{ file1_list | difference(file2_list) }}"
+        unique_names: "{{ node_class_storagenodegrp_list | difference(reboot_storagenodegrp_list) }}"
 
     - name: Convert unique names to comma-separated string
       set_fact:
@@ -158,20 +153,20 @@
       debug:
         msg: "Unique names: {{ unique_names_str }}"
 
-    - name: Append unique names to file2.txt if not empty
+    - name: Append unique names to reboot.storagenodegrp if not empty
       lineinfile:
         path: /var/mmfs/tmp/reboot.storagenodegrp
         line: "{{ item }}"
       loop: "{{ unique_names }}"
       when: unique_names | length > 0
 
-    - name: Debug final content of file2.txt
+    - name: Debug final content of reboot.storagenodegrp
       command: cat /var/mmfs/tmp/reboot.storagenodegrp
-      register: final_file2_content
+      register: final_reboot_storagenodegrp_content
 
-    - name: Print final content of file2.txt
+    - name: Print final content of reboot.storagenodegrp
       debug:
-        msg: "Final content of file2.txt: {{ final_file2_content.stdout }}"
+        msg: "Final content of reboot.storagenodegrp: {{ final_reboot_storagenodegrp_content.stdout }}"
     
     - name: Shutdown gpfs cluster if there are unique names
       command: /usr/lpp/mmfs/bin/mmshutdown -N {{ unique_names_str }}
@@ -192,82 +187,6 @@
       pause:
         seconds: 10
       when: started_gpfs_cluster.changed == true
-    
-
-    # - name: Check if reboot.storagenodegrp file exists on remote server
-    #   stat:
-    #     path: "/var/mmfs/tmp/reboot.storagenodegrp"
-    #   register: reboot_file_stat
-    #   run_once: true
-
-    # - name: Create reboot.storagenodegrp if it does not exist
-    #   file:
-    #     path: /var/mmfs/tmp/reboot.storagenodegrp
-    #     state: touch
-    #   when: not reboot_file_stat.stat.exists
-    #   run_once: true
-
-    # - name: Read NodeClass.storagenodegrp
-    #   slurp:
-    #     src: /var/mmfs/tmp/NodeClass.storagenodegrp
-    #   register: NodeClass_storagenodegrp_name
-    #   run_once: true
-
-    # - name: Read reboot.storagenodegrp
-    #   slurp:
-    #     src: /var/mmfs/tmp/reboot.storagenodegrp
-    #   register: reboot_storagenodegrp_name
-    #   run_once: true
-
-    # - name: Convert NodeClass.storagenodegrp content to list
-    #   set_fact:
-    #     NodeClass_storagenodegrp_file: "{{ NodeClass_storagenodegrp_name.content | b64decode | split('\n') }}"
-    #   run_once: true
-
-    # - name: Convert reboot.storagenodegrp content to list
-    #   set_fact:
-    #     reboot_storagenodegrp_file: "{{ reboot_storagenodegrp_name.content | b64decode | split('\n') }}"
-    #   run_once: true
-
-    # - name: Find newly added nodes
-    #   set_fact:
-    #     newly_added_nodes: "{{ NodeClass_storagenodegrp_file | difference(reboot_storagenodegrp_file) }}"
-    #   run_once: true
-
-    # - name: Overwrite reboot.storagenodegrp with newly node names
-    #   copy:
-    #     content: "{{ newly_added_nodes | join('\n') + '\n' }}"
-    #     dest: /var/mmfs/tmp/reboot.storagenodegrp
-    #   run_once: true
-    
-    # - name: Check if reboot.storagenodegrp has new node names
-    #   shell: "cat /var/mmfs/tmp/reboot.storagenodegrp"
-    #   register: reboot_storagenodegrp_content_check
-    #   changed_when: false
-
-    # - name: Set fact if reboot.storagenodegrp has content
-    #   set_fact:
-    #     reboot_storagenodegrp: "{{ reboot_storagenodegrp_content_check.stdout != '' }}"
-
-    # - name: cluster | Shutdown gpfs cluster 
-    #   command: /usr/lpp/mmfs/bin/mmshutdown -N /var/mmfs/tmp/reboot.storagenodegrp
-    #   register: shutdown_gpfs_cluster
-    #   when: reboot_storagenodegrp
-
-    # - name: Wait for 10-second 
-    #   pause:
-    #     seconds: 10
-    #   when: reboot_storagenodegrp
-        
-    # - name: cluster | Startup gpfs cluster
-    #   command: /usr/lpp/mmfs/bin/mmstartup -N /var/mmfs/tmp/reboot.storagenodegrp
-    #   register: started_gpfs_cluster
-    #   when: shutdown_gpfs_cluster.changed == true
-
-    # - name: Wait for 10-second 
-    #   pause:
-    #     seconds: 10
-    #   when: started_gpfs_cluster.changed == true
 
       #################################################################
     - name: config | Check if configuration parameters were changed
