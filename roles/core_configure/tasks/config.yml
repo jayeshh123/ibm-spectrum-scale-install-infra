@@ -84,15 +84,7 @@
       with_subelements:
         - "{{ ansible_play_hosts | map('extract', hostvars, 'scale_config') | sum(start=[]) | unique }}"
         - params
-
-    - name: Printing scale_config_changed_params
-      debug:
-        var: true in scale_config_changed_params.results | map(attribute='changed') | list
-    
-    - name: Printing scale_daemon_running
-      debug:
-        var: true in ansible_play_hosts | map('extract', hostvars, 'scale_daemon_running') | list
-        
+ 
     #################################################################
     # Do shutdown the gpfs cluster
 
@@ -108,7 +100,7 @@
         state: touch
       when: not reboot_file_stat.stat.exists
       run_once: true
-      
+
     - name: Read the content of NodeClass.storagenodegrp
       command: cat /var/mmfs/tmp/NodeClass.storagenodegrp
       register: node_class_storagenodegrp
